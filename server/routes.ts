@@ -7,9 +7,34 @@ import axios from "axios";
 
 async function translateText(text: string): Promise<string> {
   // Mock translation for now - would use Google Translate API in production
-  // Wrap the Swedish translation in an italic tag with a special class
-  const swedishText = `${text} (på svenska)`;
-  return `<i class="swedish-text" title="Original: ${text}">${swedishText}</i>`;
+  // This is a simple mock dictionary for demonstration
+  const translations: Record<string, string> = {
+    'the': 'den',
+    'hello': 'hej',
+    'world': 'världen',
+    'welcome': 'välkommen',
+    'to': 'till',
+    'page': 'sida',
+    'this': 'denna',
+    'is': 'är',
+    'a': 'en',
+    'test': 'test',
+    'website': 'webbplats',
+    'thank': 'tack',
+    'you': 'du',
+    'for': 'för',
+    'visiting': 'besöker',
+  };
+
+  // Split the text into words while preserving punctuation and spaces
+  return text.replace(/\b\w+\b/g, (word) => {
+    const lowerWord = word.toLowerCase();
+    if (translations[lowerWord]) {
+      // Wrap the Swedish translation in a span with the original word as a title
+      return `<span class="swedish-text" title="Original: ${word}">${translations[lowerWord]}</span>`;
+    }
+    return word;
+  });
 }
 
 export async function registerRoutes(app: Express) {
@@ -53,12 +78,13 @@ export async function registerRoutes(app: Express) {
       $('head').append(`
         <style>
           .swedish-text {
-            font-style: italic;
             color: #2563eb;
             background-color: rgba(37, 99, 235, 0.1);
             padding: 0 2px;
             border-radius: 2px;
             cursor: help;
+            text-decoration: underline dotted #2563eb;
+            text-underline-offset: 2px;
           }
         </style>
       `);
