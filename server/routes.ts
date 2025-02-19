@@ -98,38 +98,39 @@ export async function registerRoutes(app: Express) {
 
       // Calculate total text content length
       let totalLength = 0;
-      const textLengths: number[] = [];
+      const nodesToProcess: { node: any; text: string; length: number }[] = [];
+      
       textNodes.each(function() {
-        const length = $(this).text().trim().length;
-        textLengths.push(length);
-        totalLength += length;
+        const text = $(this).text().trim();
+        const length = text.length;
+        if (length > 0) {
+          nodesToProcess.push({ node: this, text, length });
+          totalLength += length;
+        }
       });
 
       // Calculate target length to translate
       const targetLength = Math.floor(totalLength * (translationPercentage / 100));
       let currentLength = 0;
+      let translatedCount = 0;
 
       console.log(`Total text length: ${totalLength}, Target length to translate: ${targetLength}`);
 
       // Translate nodes until we reach the target percentage
-      let translatedCount = 0;
-      textNodes.each(async function(index) {
-        const node = textNodes[index];
-        const originalText = $(node).text().trim();
+      for (const { node, text } of nodesToProcess) {
+        if (currentLength >= targetLength) break;
 
-        if (originalText.length > 0 && currentLength < targetLength) {
-          const translatedText = await translateText(originalText);
-          await storage.saveTranslation({
-            originalText,
-            translatedText,
-            url
-          });
+        const translatedText = await translateText(text);
+        await storage.saveTranslation({
+          originalText: text,
+          translatedText,
+          url
+        });
 
-          $(node).replaceWith(translatedText);
-          currentLength += originalText.length;
-          translatedCount++;
-        }
-      });
+        $(node).replaceWith(translatedText);
+        currentLength += text.length;
+        translatedCount++;
+      }
 
       const actualPercentage = (currentLength / totalLength) * 100;
       console.log(`Successfully translated ${translatedCount} text nodes (${actualPercentage.toFixed(1)}% of content)`);
