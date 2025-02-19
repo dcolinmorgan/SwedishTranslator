@@ -126,8 +126,8 @@ export async function registerRoutes(app: Express) {
         </script>
       `);
 
-      // Get all text nodes
-      const textNodes = $("p, h1, h2, h3, h4, h5, h6, span, div").contents().filter(function() {
+      // Only select paragraph content for translation, excluding headlines and navigation
+      const textNodes = $("p, article p, .article-body p, .content p, .story-body p").contents().filter(function() {
         return this.type === 'text' && this.data.trim().length > 0;
       });
 
