@@ -88,7 +88,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-yellow-50 p-4 md:p-8">
       <div className="max-w-[2000px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Input Panel */}
-        <Card className="h-fit">
+        <Card className="h-fit lg:sticky lg:top-8">
           <CardHeader>
             <div className="flex items-center gap-3">
               <Globe className="w-8 h-8 text-blue-500" />
@@ -168,7 +168,7 @@ export default function Home() {
           <CardContent className="p-6">
             {translatedContent ? (
               <div 
-                className="prose max-w-none"
+                className="prose max-w-none overflow-x-auto"
                 dangerouslySetInnerHTML={{ __html: translatedContent }} 
               />
             ) : (
