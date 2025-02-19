@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Home() {
@@ -43,12 +43,37 @@ export default function Home() {
         });
       }
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to translate webpage",
-        variant: "destructive"
-      });
+    onError: (error: any) => {
+      // Check if it's a 403 error with test URLs
+      if (error.response?.data?.testUrls) {
+        toast({
+          title: "Access Denied",
+          description: (
+            <div className="space-y-2">
+              <p>{error.response.data.details}</p>
+              <ul className="list-disc pl-4">
+                {error.response.data.testUrls.map((url: string) => (
+                  <li key={url}>
+                    <button
+                      className="text-blue-500 hover:underline"
+                      onClick={() => setUrl(url)}
+                    >
+                      {url}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ),
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to translate webpage",
+          variant: "destructive"
+        });
+      }
     }
   });
 

@@ -34,7 +34,18 @@ export async function registerRoutes(app: Express) {
       const { url, translationPercentage } = result.data;
       console.log(`Fetching URL: ${url} with translation percentage: ${translationPercentage}%`);
 
-      const response = await axios.get(url);
+      // Add browser-like headers
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+        timeout: 10000, // 10 second timeout
+      });
+
       const $ = cheerio.load(response.data);
 
       // Add our custom styles for Swedish text
@@ -91,11 +102,25 @@ export async function registerRoutes(app: Express) {
 
       console.log(`Successfully translated ${translatedCount} text nodes`);
       res.json({ html: $.html() });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Translation error:', error);
+
+      // Handle specific error cases
+      if (error.response?.status === 403) {
+        return res.status(403).json({ 
+          error: "Access Denied",
+          details: "This website doesn't allow automated access. Try one of these test URLs instead:",
+          testUrls: [
+            "https://example.com",
+            "https://www.w3.org/",
+            "https://www.webscraper.io/test-sites/e-commerce/allinone"
+          ]
+        });
+      }
+
       res.status(500).json({ 
         error: "Failed to translate webpage",
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error.message || 'Unknown error'
       });
     }
   });
