@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, Github } from "lucide-react";
+import { SiX } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
 
 const DEFAULT_URL = "https://example.com";
 const TEST_URLS = [
-  { url: "https://nyt.com" },
-  { url: "https://www.scmp.com" },
-  { url: "https://www.bloomberg.com" }
+  { url: "https://nyt.com", description: "New York Times - International News" },
+  { url: "https://www.scmp.com", description: "South China Morning Post - Asia News" },
+  { url: "https://www.bloomberg.com", description: "Bloomberg - Business & Markets" }
 ];
 
 export default function Home() {
@@ -97,101 +98,136 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-yellow-50 p-4 md:p-8">
-      <div className="max-w-[2000px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Input Panel */}
-        <Card className="h-fit lg:sticky lg:top-8">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Globe className="w-8 h-8 text-blue-500" />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-yellow-600 bg-clip-text text-transparent">
-                Swedish Learning Assistant
-              </h1>
-            </div>
-            <p className="text-muted-foreground mt-2">
-              Enter a webpage URL and choose how much of the content to translate to Swedish.
-              Translated text will be highlighted in blue and show the original text on hover.
-            </p>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Webpage URL</label>
-              <Input
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className={!url.startsWith('http') && url.length > 0 ? 'border-red-500' : ''}
-              />
-              {!url.startsWith('http') && url.length > 0 && (
-                <p className="text-sm text-red-500">URL must start with http:// or https://</p>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm font-medium text-muted-foreground">Try these test URLs:</p>
-              <div className="grid gap-2">
-                {TEST_URLS.map((test) => (
-                  <button
-                    key={test.url}
-                    onClick={() => setUrl(test.url)}
-                    className="text-left p-2 hover:bg-accent rounded-md transition-colors"
-                  >
-                    <div className="font-medium">{test.url}</div>
-                    <div className="text-sm text-muted-foreground">{test.description}</div>
-                  </button>
-                ))}
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-yellow-50 flex flex-col">
+      <div className="flex-grow p-4 md:p-8">
+        <div className="max-w-[2000px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Input Panel */}
+          <Card className="h-fit lg:sticky lg:top-8">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Globe className="w-8 h-8 text-blue-500" />
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-yellow-600 bg-clip-text text-transparent">
+                  Learn Swedish by Reading
+                </h1>
               </div>
-            </div>
+              <p className="text-muted-foreground mt-4 text-lg">
+                Enhance your Swedish language skills by reading real-world content. 
+                This tool intelligently translates portions of any webpage into Swedish, 
+                helping you learn through immersion while maintaining context.
+              </p>
+              <div className="mt-2 text-sm text-muted-foreground">
+                <p>• Hover over translated words to see English originals</p>
+                <p>• Click any link to translate the next page</p>
+                <p>• Adjust translation density to match your skill level</p>
+              </div>
+            </CardHeader>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Translation Percentage: {translationPercent}%
-              </label>
-              <Slider
-                value={translationPercent}
-                onValueChange={setTranslationPercent}
-                min={0}
-                max={100}
-                step={1}
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Webpage URL</label>
+                <Input
+                  placeholder="https://example.com"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className={!url.startsWith('http') && url.length > 0 ? 'border-red-500' : ''}
+                />
+                {!url.startsWith('http') && url.length > 0 && (
+                  <p className="text-sm text-red-500">URL must start with http:// or https://</p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm font-medium text-muted-foreground">Try these news sources:</p>
+                <div className="grid gap-2">
+                  {TEST_URLS.map((test) => (
+                    <button
+                      key={test.url}
+                      onClick={() => setUrl(test.url)}
+                      className="text-left p-2 hover:bg-accent rounded-md transition-colors"
+                    >
+                      <div className="font-medium">{test.url}</div>
+                      <div className="text-sm text-muted-foreground">{test.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Translation Percentage: {translationPercent}%
+                </label>
+                <Slider
+                  value={translationPercent}
+                  onValueChange={setTranslationPercent}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+
+              <Button 
+                onClick={() => translateMutation.mutate()}
+                disabled={translateMutation.isPending || !url || !url.startsWith('http')}
                 className="w-full"
-              />
-            </div>
+              >
+                {translateMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Translating...
+                  </>
+                ) : (
+                  "Translate Webpage"
+                )}
+              </Button>
+            </CardContent>
+          </Card>
 
-            <Button 
-              onClick={() => translateMutation.mutate()}
-              disabled={translateMutation.isPending || !url || !url.startsWith('http')}
-              className="w-full"
-            >
-              {translateMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Translating...
-                </>
+          {/* Results Panel */}
+          <Card className="h-fit">
+            <CardContent className="p-6">
+              {translatedContent ? (
+                <div 
+                  className="prose max-w-none overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: translatedContent }} 
+                />
               ) : (
-                "Translate Webpage"
+                <div className="text-center text-muted-foreground p-8">
+                  <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Translated content will appear here</p>
+                </div>
               )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Results Panel */}
-        <Card className="h-fit">
-          <CardContent className="p-6">
-            {translatedContent ? (
-              <div 
-                className="prose max-w-none overflow-x-auto"
-                dangerouslySetInnerHTML={{ __html: translatedContent }} 
-              />
-            ) : (
-              <div className="text-center text-muted-foreground p-8">
-                <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Translated content will appear here</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="w-full border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 max-w-screen-2xl items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Built with 💙 for learning Swedish
+          </p>
+          <div className="flex items-center space-x-4">
+            <a
+              href="https://github.com/dcolinmorgan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Github className="h-5 w-5" />
+            </a>
+            <a
+              href="https://x.com/dcolinmorgan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <SiX className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
