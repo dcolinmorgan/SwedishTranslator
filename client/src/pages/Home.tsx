@@ -1,18 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
-const DEFAULT_URL = "https://nyt.com";
+const DEFAULT_URL = "https://example.com";
 const TEST_URLS = [
-  { url: "https://nyt.com", description: "New York Times" },
-  { url: "https://www.bloomberg.com/", description: "Bloomberg" },
-  { url: "https://www.scmp.com", description: "SCMP" },
+  { url: "https://example.com", description: "Simple test page" },
+  { url: "https://www.w3.org/", description: "W3C Homepage" },
+  { url: "https://www.webscraper.io/test-sites/e-commerce/allinone", description: "Test e-commerce site" }
 ];
 
 export default function Home() {
@@ -24,29 +24,27 @@ export default function Home() {
   // Handle shared URLs from Safari
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const sharedUrl = params.get("url");
+    const sharedUrl = params.get('url');
     if (sharedUrl) {
       setUrl(sharedUrl);
       // Clear the URL parameters without triggering a refresh
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, '', '/');
     }
   }, []);
 
   const { data: preferences } = useQuery({
-    queryKey: ["/api/preferences"],
+    queryKey: ["/api/preferences"]
   });
 
   const translateMutation = useMutation({
-    mutationFn: async (targetUrl: string) => {
-      if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
-        throw new Error(
-          "Please enter a valid URL starting with http:// or https://",
-        );
+    mutationFn: async () => {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        throw new Error('Please enter a valid URL starting with http:// or https://');
       }
 
       const res = await apiRequest("POST", "/api/translate", {
-        url: targetUrl,
-        translationPercentage: translationPercent[0],
+        url,
+        translationPercentage: translationPercent[0]
       });
       return res.json();
     },
@@ -74,39 +72,17 @@ export default function Home() {
               </ul>
             </div>
           ),
-          variant: "destructive",
+          variant: "destructive"
         });
       } else {
         toast({
           title: "Error",
           description: error.message || "Failed to translate webpage",
-          variant: "destructive",
+          variant: "destructive"
         });
       }
-    },
+    }
   });
-
-  // Handle link clicks within translated content
-  const handleContentClick = useCallback((e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const closestLink = target.closest('a');
-
-    if (closestLink && closestLink.href) {
-      e.preventDefault();
-      const newUrl = closestLink.href;
-      setUrl(newUrl);
-      translateMutation.mutate(newUrl);
-    }
-  }, [translateMutation]);
-
-  // Add click handler to translated content
-  useEffect(() => {
-    const contentDiv = document.querySelector('.translated-content');
-    if (contentDiv) {
-      contentDiv.addEventListener('click', handleContentClick);
-      return () => contentDiv.removeEventListener('click', handleContentClick);
-    }
-  }, [translatedContent, handleContentClick]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-yellow-50 p-4 md:p-8">
@@ -121,50 +97,36 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-muted-foreground mt-2">
-              Enter a webpage URL and choose how much of the content to
-              translate to Swedish. Translated text will be highlighted in blue
-              and show the original text on hover.
+              Enter a webpage URL and choose how much of the content to translate to Swedish.
+              Translated text will be highlighted in blue and show the original text on hover.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Current URL</label>
+              <label className="text-sm font-medium">Webpage URL</label>
               <Input
                 placeholder="https://example.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                className={
-                  !url.startsWith("http") && url.length > 0
-                    ? "border-red-500"
-                    : ""
-                }
+                className={!url.startsWith('http') && url.length > 0 ? 'border-red-500' : ''}
               />
-              {!url.startsWith("http") && url.length > 0 && (
-                <p className="text-sm text-red-500">
-                  URL must start with http:// or https://
-                </p>
+              {!url.startsWith('http') && url.length > 0 && (
+                <p className="text-sm text-red-500">URL must start with http:// or https://</p>
               )}
             </div>
 
             <div className="space-y-4">
-              <p className="text-sm font-medium text-muted-foreground">
-                Try these test URLs:
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">Try these test URLs:</p>
               <div className="grid gap-2">
                 {TEST_URLS.map((test) => (
                   <button
                     key={test.url}
-                    onClick={() => {
-                      setUrl(test.url);
-                      translateMutation.mutate(test.url);
-                    }}
+                    onClick={() => setUrl(test.url)}
                     className="text-left p-2 hover:bg-accent rounded-md transition-colors"
                   >
                     <div className="font-medium">{test.url}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {test.description}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{test.description}</div>
                   </button>
                 ))}
               </div>
@@ -184,11 +146,9 @@ export default function Home() {
               />
             </div>
 
-            <Button
-              onClick={() => translateMutation.mutate(url)}
-              disabled={
-                translateMutation.isPending || !url || !url.startsWith("http")
-              }
+            <Button 
+              onClick={() => translateMutation.mutate()}
+              disabled={translateMutation.isPending || !url || !url.startsWith('http')}
               className="w-full"
             >
               {translateMutation.isPending ? (
@@ -207,9 +167,9 @@ export default function Home() {
         <Card className="h-fit">
           <CardContent className="p-6">
             {translatedContent ? (
-              <div
-                className="prose max-w-none overflow-x-auto translated-content"
-                dangerouslySetInnerHTML={{ __html: translatedContent }}
+              <div 
+                className="prose max-w-none overflow-x-auto"
+                dangerouslySetInnerHTML={{ __html: translatedContent }} 
               />
             ) : (
               <div className="text-center text-muted-foreground p-8">

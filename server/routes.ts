@@ -37,36 +37,6 @@ async function translateText(text: string): Promise<string> {
   });
 }
 
-function rewriteLinks($: cheerio.CheerioAPI, baseUrl: string): void {
-  // Ensure baseUrl doesn't end with a slash
-  baseUrl = baseUrl.replace(/\/$/, '');
-
-  $('a').each((_, element) => {
-    const href = $(element).attr('href');
-    if (href) {
-      // Handle different types of links
-      let absoluteUrl;
-      if (href.startsWith('http')) {
-        // Absolute URL
-        absoluteUrl = href;
-      } else if (href.startsWith('//')) {
-        // Protocol-relative URL
-        absoluteUrl = `https:${href}`;
-      } else if (href.startsWith('/')) {
-        // Root-relative URL
-        const urlObj = new URL(baseUrl);
-        absoluteUrl = `${urlObj.protocol}//${urlObj.host}${href}`;
-      } else {
-        // Relative URL
-        absoluteUrl = `${baseUrl}/${href.replace(/^\.\//, '')}`;
-      }
-
-      // Set the absolute URL as the href
-      $(element).attr('href', absoluteUrl);
-    }
-  });
-}
-
 export async function registerRoutes(app: Express) {
   app.get("/api/preferences", async (_req, res) => {
     const preferences = await storage.getPreferences();
@@ -104,9 +74,6 @@ export async function registerRoutes(app: Express) {
 
       const $ = cheerio.load(response.data);
 
-      // Rewrite all links to absolute URLs
-      rewriteLinks($, url);
-
       // Add our custom styles for Swedish text
       $('head').append(`
         <style>
@@ -131,39 +98,38 @@ export async function registerRoutes(app: Express) {
 
       // Calculate total text content length
       let totalLength = 0;
-      const nodesToProcess: { node: any; text: string; length: number }[] = [];
-
+      const textLengths: number[] = [];
       textNodes.each(function() {
-        const text = $(this).text().trim();
-        const length = text.length;
-        if (length > 0) {
-          nodesToProcess.push({ node: this, text, length });
-          totalLength += length;
-        }
+        const length = $(this).text().trim().length;
+        textLengths.push(length);
+        totalLength += length;
       });
 
       // Calculate target length to translate
       const targetLength = Math.floor(totalLength * (translationPercentage / 100));
       let currentLength = 0;
-      let translatedCount = 0;
 
       console.log(`Total text length: ${totalLength}, Target length to translate: ${targetLength}`);
 
       // Translate nodes until we reach the target percentage
-      for (const { node, text } of nodesToProcess) {
-        if (currentLength >= targetLength) break;
+      let translatedCount = 0;
+      textNodes.each(async function(index) {
+        const node = textNodes[index];
+        const originalText = $(node).text().trim();
 
-        const translatedText = await translateText(text);
-        await storage.saveTranslation({
-          originalText: text,
-          translatedText,
-          url
-        });
+        if (originalText.length > 0 && currentLength < targetLength) {
+          const translatedText = await translateText(originalText);
+          await storage.saveTranslation({
+            originalText,
+            translatedText,
+            url
+          });
 
-        $(node).replaceWith(translatedText);
-        currentLength += text.length;
-        translatedCount++;
-      }
+          $(node).replaceWith(translatedText);
+          currentLength += originalText.length;
+          translatedCount++;
+        }
+      });
 
       const actualPercentage = (currentLength / totalLength) * 100;
       console.log(`Successfully translated ${translatedCount} text nodes (${actualPercentage.toFixed(1)}% of content)`);
