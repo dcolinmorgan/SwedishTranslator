@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Globe, Loader2, AlertCircle } from "lucide-react";
+import { Globe, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const DEFAULT_URL = "https://nyt.com";
@@ -18,9 +18,7 @@ const TEST_URLS = [
 export default function Home() {
   const [url, setUrl] = useState(DEFAULT_URL);
   const [translationPercent, setTranslationPercent] = useState([30]);
-  const [translatedContent, setTranslatedContent] = useState<string | null>(
-    null,
-  );
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Handle shared URLs from Safari
@@ -39,15 +37,15 @@ export default function Home() {
   });
 
   const translateMutation = useMutation({
-    mutationFn: async () => {
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    mutationFn: async (targetUrl: string) => {
+      if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
         throw new Error(
           "Please enter a valid URL starting with http:// or https://",
         );
       }
 
       const res = await apiRequest("POST", "/api/translate", {
-        url,
+        url: targetUrl,
         translationPercentage: translationPercent[0],
       });
       return res.json();
@@ -88,6 +86,28 @@ export default function Home() {
     },
   });
 
+  // Handle link clicks within translated content
+  const handleContentClick = useCallback((e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const closestLink = target.closest('a');
+
+    if (closestLink && closestLink.href) {
+      e.preventDefault();
+      const newUrl = closestLink.href;
+      setUrl(newUrl);
+      translateMutation.mutate(newUrl);
+    }
+  }, [translateMutation]);
+
+  // Add click handler to translated content
+  useEffect(() => {
+    const contentDiv = document.querySelector('.translated-content');
+    if (contentDiv) {
+      contentDiv.addEventListener('click', handleContentClick);
+      return () => contentDiv.removeEventListener('click', handleContentClick);
+    }
+  }, [translatedContent, handleContentClick]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-yellow-50 p-4 md:p-8">
       <div className="max-w-[2000px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -109,7 +129,7 @@ export default function Home() {
 
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Webpage URL</label>
+              <label className="text-sm font-medium">Current URL</label>
               <Input
                 placeholder="https://example.com"
                 value={url}
@@ -135,7 +155,10 @@ export default function Home() {
                 {TEST_URLS.map((test) => (
                   <button
                     key={test.url}
-                    onClick={() => setUrl(test.url)}
+                    onClick={() => {
+                      setUrl(test.url);
+                      translateMutation.mutate(test.url);
+                    }}
                     className="text-left p-2 hover:bg-accent rounded-md transition-colors"
                   >
                     <div className="font-medium">{test.url}</div>
@@ -162,7 +185,7 @@ export default function Home() {
             </div>
 
             <Button
-              onClick={() => translateMutation.mutate()}
+              onClick={() => translateMutation.mutate(url)}
               disabled={
                 translateMutation.isPending || !url || !url.startsWith("http")
               }
@@ -185,7 +208,7 @@ export default function Home() {
           <CardContent className="p-6">
             {translatedContent ? (
               <div
-                className="prose max-w-none overflow-x-auto"
+                className="prose max-w-none overflow-x-auto translated-content"
                 dangerouslySetInnerHTML={{ __html: translatedContent }}
               />
             ) : (

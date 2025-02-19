@@ -37,6 +37,36 @@ async function translateText(text: string): Promise<string> {
   });
 }
 
+function rewriteLinks($: cheerio.CheerioAPI, baseUrl: string): void {
+  // Ensure baseUrl doesn't end with a slash
+  baseUrl = baseUrl.replace(/\/$/, '');
+
+  $('a').each((_, element) => {
+    const href = $(element).attr('href');
+    if (href) {
+      // Handle different types of links
+      let absoluteUrl;
+      if (href.startsWith('http')) {
+        // Absolute URL
+        absoluteUrl = href;
+      } else if (href.startsWith('//')) {
+        // Protocol-relative URL
+        absoluteUrl = `https:${href}`;
+      } else if (href.startsWith('/')) {
+        // Root-relative URL
+        const urlObj = new URL(baseUrl);
+        absoluteUrl = `${urlObj.protocol}//${urlObj.host}${href}`;
+      } else {
+        // Relative URL
+        absoluteUrl = `${baseUrl}/${href.replace(/^\.\//, '')}`;
+      }
+
+      // Set the absolute URL as the href
+      $(element).attr('href', absoluteUrl);
+    }
+  });
+}
+
 export async function registerRoutes(app: Express) {
   app.get("/api/preferences", async (_req, res) => {
     const preferences = await storage.getPreferences();
@@ -74,6 +104,9 @@ export async function registerRoutes(app: Express) {
 
       const $ = cheerio.load(response.data);
 
+      // Rewrite all links to absolute URLs
+      rewriteLinks($, url);
+
       // Add our custom styles for Swedish text
       $('head').append(`
         <style>
@@ -99,7 +132,7 @@ export async function registerRoutes(app: Express) {
       // Calculate total text content length
       let totalLength = 0;
       const nodesToProcess: { node: any; text: string; length: number }[] = [];
-      
+
       textNodes.each(function() {
         const text = $(this).text().trim();
         const length = text.length;
