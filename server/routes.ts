@@ -24,6 +24,14 @@ async function translateText(text: string): Promise<string> {
     'you': 'du',
     'for': 'för',
     'visiting': 'besöker',
+    'example':'exempel',
+    'of':'av',
+    'some':'några',
+    'text':'text',
+    'in':'i',
+    'english':'engelska',
+    'and':'och',
+    'swedish':'svenska'
   };
 
   // Split the text into words while preserving punctuation and spaces
