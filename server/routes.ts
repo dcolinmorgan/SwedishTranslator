@@ -96,44 +96,38 @@ export async function registerRoutes(app: Express) {
 
       console.log(`Found ${textNodes.length} text nodes to potentially translate`);
 
-      // Calculate total text content length
-      let totalLength = 0;
-      const textLengths: number[] = [];
-      textNodes.each(function() {
-        const length = $(this).text().trim().length;
-        textLengths.push(length);
-        totalLength += length;
-      });
+      // Calculate how many nodes to translate
+      const nodesToTranslate = Math.floor(textNodes.length * (translationPercentage / 100));
+      console.log(`Will translate ${nodesToTranslate} nodes`);
 
-      // Calculate target length to translate
-      const targetLength = Math.floor(totalLength * (translationPercentage / 100));
-      let currentLength = 0;
+      // Randomly select nodes to translate
+      const indices = new Set<number>();
+      while (indices.size < nodesToTranslate) {
+        indices.add(Math.floor(Math.random() * textNodes.length));
+      }
 
-      console.log(`Total text length: ${totalLength}, Target length to translate: ${targetLength}`);
-
-      // Translate nodes until we reach the target percentage
+      // Translate selected nodes
       let translatedCount = 0;
-      textNodes.each(async function(index) {
-        const node = textNodes[index];
-        const originalText = $(node).text().trim();
+      for (let i = 0; i < textNodes.length; i++) {
+        if (indices.has(i)) {
+          const node = textNodes[i];
+          const originalText = $(node).text().trim();
 
-        if (originalText.length > 0 && currentLength < targetLength) {
-          const translatedText = await translateText(originalText);
-          await storage.saveTranslation({
-            originalText,
-            translatedText,
-            url
-          });
+          if (originalText.length > 0) {
+            const translatedText = await translateText(originalText);
+            await storage.saveTranslation({
+              originalText,
+              translatedText,
+              url
+            });
 
-          $(node).replaceWith(translatedText);
-          currentLength += originalText.length;
-          translatedCount++;
+            $(node).replaceWith(translatedText);
+            translatedCount++;
+          }
         }
-      });
+      }
 
-      const actualPercentage = (currentLength / totalLength) * 100;
-      console.log(`Successfully translated ${translatedCount} text nodes (${actualPercentage.toFixed(1)}% of content)`);
-
+      console.log(`Successfully translated ${translatedCount} text nodes`);
       res.json({ html: $.html() });
     } catch (error: any) {
       console.error('Translation error:', error);
