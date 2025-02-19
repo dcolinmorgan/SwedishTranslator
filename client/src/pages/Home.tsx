@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export default function Home() {
   const [url, setUrl] = useState(DEFAULT_URL);
   const [translationPercent, setTranslationPercent] = useState([30]);
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
 
   // Handle shared URLs from Safari and internal navigation
@@ -63,6 +64,19 @@ export default function Home() {
     },
     onSuccess: (data) => {
       setTranslatedContent(data.html);
+
+      // After content is set, ensure iframe is properly sized
+      if (iframeRef.current) {
+        const iframe = iframeRef.current;
+        iframe.onload = () => {
+          try {
+            const height = iframe.contentWindow?.document.documentElement.scrollHeight || 800;
+            iframe.style.height = `${height}px`;
+          } catch (e) {
+            console.error('Failed to adjust iframe height:', e);
+          }
+        };
+      }
     },
     onError: (error: any) => {
       if (error.response?.data?.testUrls) {
@@ -187,9 +201,12 @@ export default function Home() {
           <Card className="h-fit">
             <CardContent className="p-6">
               {translatedContent ? (
-                <div 
-                  className="prose max-w-none overflow-x-auto"
-                  dangerouslySetInnerHTML={{ __html: translatedContent }} 
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={translatedContent}
+                  className="w-full min-h-[800px] border-none"
+                  title="Translated Content"
+                  sandbox="allow-same-origin allow-scripts"
                 />
               ) : (
                 <div className="text-center text-muted-foreground p-8">
