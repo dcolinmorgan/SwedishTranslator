@@ -8,7 +8,8 @@ import axios from "axios";
 async function translateText(text: string): Promise<string> {
   // Mock translation for now - would use Google Translate API in production
   // Wrap the Swedish translation in an italic tag with a special class
-  return `<i class="swedish-text" title="Original: ${text}">${text} (på svenska)</i>`;
+  const swedishText = `${text} (på svenska)`;
+  return `<i class="swedish-text" title="Original: ${text}">${swedishText}</i>`;
 }
 
 export async function registerRoutes(app: Express) {
