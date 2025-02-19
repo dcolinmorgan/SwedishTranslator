@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Globe, Loader2, AlertCircle } from "lucide-react";
+import { Globe, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 const DEFAULT_URL = "https://example.com";
 const TEST_URLS = [
-  { url: "https://example.com", description: "Simple test page" },
-  { url: "https://www.w3.org/", description: "W3C Homepage" },
-  { url: "https://www.webscraper.io/test-sites/e-commerce/allinone", description: "Test e-commerce site" }
+  { url: "https://nyt.com" },
+  { url: "https://www.scmp.com" },
+  { url: "https://www.bloomberg.com" }
 ];
 
 export default function Home() {
@@ -21,8 +21,9 @@ export default function Home() {
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Handle shared URLs from Safari
+  // Handle shared URLs from Safari and internal navigation
   useEffect(() => {
+    // Handle URL shares from Safari
     const params = new URLSearchParams(window.location.search);
     const sharedUrl = params.get('url');
     if (sharedUrl) {
@@ -30,6 +31,17 @@ export default function Home() {
       // Clear the URL parameters without triggering a refresh
       window.history.replaceState({}, '', '/');
     }
+
+    // Handle internal navigation from translated content
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'NAVIGATE' && event.data.url) {
+        setUrl(event.data.url);
+        translateMutation.mutate();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const { data: preferences } = useQuery({

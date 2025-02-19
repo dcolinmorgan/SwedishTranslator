@@ -97,6 +97,31 @@ export async function registerRoutes(app: Express) {
         </style>
       `);
 
+      // Modify all links to work with our internal routing
+      $('a').each((_, element) => {
+        const $link = $(element);
+        const href = $link.attr('href');
+        if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+          $link.attr('data-original-href', href);
+          $link.addClass('translated-link');
+        }
+      });
+
+      // Add script to handle link clicks
+      $('body').append(`
+        <script>
+          document.addEventListener('click', function(e) {
+            if (e.target.closest('.translated-link')) {
+              e.preventDefault();
+              const originalHref = e.target.closest('.translated-link').dataset.originalHref;
+              if (originalHref) {
+                window.parent.postMessage({ type: 'NAVIGATE', url: originalHref }, '*');
+              }
+            }
+          });
+        </script>
+      `);
+
       // Get all text nodes
       const textNodes = $("p, h1, h2, h3, h4, h5, h6, span, div").contents().filter(function(this: any) {
         return this.type === 'text' && this.data.trim().length > 0;
