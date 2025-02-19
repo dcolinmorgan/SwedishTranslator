@@ -19,6 +19,10 @@ export default function Home() {
 
   const translateMutation = useMutation({
     mutationFn: async () => {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        throw new Error('Please enter a valid URL starting with http:// or https://');
+      }
+
       const res = await apiRequest("POST", "/api/translate", {
         url,
         translationPercentage: translationPercent[0]
@@ -30,12 +34,19 @@ export default function Home() {
       const win = window.open("", "_blank");
       if (win) {
         win.document.write(data.html);
+        win.document.close(); // Important to finish loading
+      } else {
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups to view the translated page",
+          variant: "destructive"
+        });
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to translate webpage",
+        description: error.message || "Failed to translate webpage",
         variant: "destructive"
       });
     }
@@ -52,10 +63,11 @@ export default function Home() {
             </h1>
           </div>
           <p className="text-muted-foreground mt-2">
-            Enter a webpage URL and choose how much of the content to translate to Swedish
+            Enter a webpage URL and choose how much of the content to translate to Swedish.
+            Translated text will be highlighted in blue and show the original text on hover.
           </p>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-medium">Webpage URL</label>
@@ -63,7 +75,11 @@ export default function Home() {
               placeholder="https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              className={!url.startsWith('http') && url.length > 0 ? 'border-red-500' : ''}
             />
+            {!url.startsWith('http') && url.length > 0 && (
+              <p className="text-sm text-red-500">URL must start with http:// or https://</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -82,7 +98,7 @@ export default function Home() {
 
           <Button 
             onClick={() => translateMutation.mutate()}
-            disabled={translateMutation.isPending || !url}
+            disabled={translateMutation.isPending || !url || !url.startsWith('http')}
             className="w-full"
           >
             {translateMutation.isPending ? (
