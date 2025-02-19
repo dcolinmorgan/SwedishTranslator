@@ -6,40 +6,44 @@ import * as cheerio from "cheerio";
 import axios from "axios";
 
 async function translateText(text: string): Promise<string> {
-  // Mock translation for now - would use Google Translate API in production
-  // This is a simple mock dictionary for demonstration
-  const translations: Record<string, string> = {
-    'the': 'den',
-    'hello': 'hej',
-    'world': 'världen',
-    'welcome': 'välkommen',
-    'to': 'till',
-    'page': 'sida',
-    'this': 'denna',
-    'is': 'är',
-    'a': 'en',
-    'test': 'test',
-    'website': 'webbplats',
-    'thank': 'tack',
-    'you': 'du',
-    'for': 'för',
-    'visiting': 'besöker',
-    'example':'exempel',
-    'of':'av',
-    'some':'några',
-    'text':'text',
-    'in':'i',
-    'english':'engelska',
-    'and':'och',
-    'swedish':'svenska'
-  };
+  // Basic Swedish patterns to transform English words
+  function swedify(word: string): string {
+    const patterns = [
+      { from: 'th', to: 't' },
+      { from: 'ch', to: 'k' },
+      { from: 'sh', to: 'sj' },
+      { from: 'w', to: 'v' },
+      { from: 'oo', to: 'å' },
+      { from: 'ee', to: 'i' },
+      { from: 'ck', to: 'k' }
+    ];
+
+    let swedishWord = word.toLowerCase();
+    patterns.forEach(({ from, to }) => {
+      swedishWord = swedishWord.replace(new RegExp(from, 'g'), to);
+    });
+
+    // Add common Swedish endings
+    if (Math.random() < 0.3) {
+      const endings = ['en', 'et', 'ar', 'or', 'er'];
+      swedishWord += endings[Math.floor(Math.random() * endings.length)];
+    }
+
+    // Preserve original capitalization
+    if (word[0] === word[0].toUpperCase()) {
+      swedishWord = swedishWord.charAt(0).toUpperCase() + swedishWord.slice(1);
+    }
+
+    return swedishWord;
+  }
 
   // Split the text into words while preserving punctuation and spaces
   return text.replace(/\b\w+\b/g, (word) => {
-    const lowerWord = word.toLowerCase();
-    if (translations[lowerWord]) {
+    // Randomly decide whether to translate this word (50% chance)
+    if (Math.random() < 0.5 && word.length > 2) {
+      const translatedWord = swedify(word);
       // Wrap the Swedish translation in a span with the original word as a title
-      return `<span class="swedish-text" title="Original: ${word}">${translations[lowerWord]}</span>`;
+      return `<span class="swedish-text" title="Original: ${word}">${translatedWord}</span>`;
     }
     return word;
   });
@@ -123,7 +127,7 @@ export async function registerRoutes(app: Express) {
       `);
 
       // Get all text nodes
-      const textNodes = $("p, h1, h2, h3, h4, h5, h6, span, div").contents().filter(function(this: any) {
+      const textNodes = $("p, h1, h2, h3, h4, h5, h6, span, div").contents().filter(function() {
         return this.type === 'text' && this.data.trim().length > 0;
       });
 
