@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,28 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Globe, Loader2, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
+const DEFAULT_URL = "https://example.com";
+const TEST_URLS = [
+  { url: "https://example.com", description: "Simple test page" },
+  { url: "https://www.w3.org/", description: "W3C Homepage" },
+  { url: "https://www.webscraper.io/test-sites/e-commerce/allinone", description: "Test e-commerce site" }
+];
+
 export default function Home() {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(DEFAULT_URL);
   const [translationPercent, setTranslationPercent] = useState([30]);
   const { toast } = useToast();
+
+  // Handle shared URLs from Safari
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get('url');
+    if (sharedUrl) {
+      setUrl(sharedUrl);
+      // Clear the URL parameters without triggering a refresh
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   const { data: preferences } = useQuery({
     queryKey: ["/api/preferences"]
@@ -30,11 +48,10 @@ export default function Home() {
       return res.json();
     },
     onSuccess: (data) => {
-      // Create a new window to display translated content
       const win = window.open("", "_blank");
       if (win) {
         win.document.write(data.html);
-        win.document.close(); // Important to finish loading
+        win.document.close();
       } else {
         toast({
           title: "Popup Blocked",
@@ -44,7 +61,6 @@ export default function Home() {
       }
     },
     onError: (error: any) => {
-      // Check if it's a 403 error with test URLs
       if (error.response?.data?.testUrls) {
         toast({
           title: "Access Denied",
@@ -105,6 +121,22 @@ export default function Home() {
             {!url.startsWith('http') && url.length > 0 && (
               <p className="text-sm text-red-500">URL must start with http:// or https://</p>
             )}
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-muted-foreground">Try these test URLs:</p>
+            <div className="grid gap-2">
+              {TEST_URLS.map((test) => (
+                <button
+                  key={test.url}
+                  onClick={() => setUrl(test.url)}
+                  className="text-left p-2 hover:bg-accent rounded-md transition-colors"
+                >
+                  <div className="font-medium">{test.url}</div>
+                  <div className="text-sm text-muted-foreground">{test.description}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
