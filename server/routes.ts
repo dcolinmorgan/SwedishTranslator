@@ -89,8 +89,12 @@ const languagePatterns: Record<string, { patterns: Array<{from: string, to: stri
   }
 };
 
-async function translateText(text: string, language: string): Promise<string> {
+async function translateText(text: string, language: string): Promise<{ 
+  translatedText: string;
+  wordPairs: Array<{ original: string; translated: string }>;
+}> {
   const langConfig = languagePatterns[language] || languagePatterns.swedish;
+  const wordPairs: Array<{ original: string; translated: string }> = [];
 
   function transform(word: string): string {
     let transformed = word.toLowerCase();
@@ -115,15 +119,19 @@ async function translateText(text: string, language: string): Promise<string> {
   }
 
   // Split the text into words while preserving punctuation and spaces
-  return text.replace(/\b\w+\b/g, (word) => {
+  const translatedText = text.replace(/\b\w+\b/g, (word) => {
     // Randomly decide whether to translate this word (50% chance)
     if (Math.random() < 0.5 && word.length > 2) {
       const translatedWord = transform(word);
+      // Store the word pair for the vocabulary list
+      wordPairs.push({ original: word, translated: translatedWord });
       // Wrap the translation in a span with the original word as a title
       return `<span class="swedish-text" title="Original: ${word}">${translatedWord}</span>`;
     }
     return word;
   });
+
+  return { translatedText, wordPairs };
 }
 
 export async function registerRoutes(app: Express) {
@@ -149,7 +157,7 @@ export async function registerRoutes(app: Express) {
       const { url, translationPercentage, language } = result.data;
       console.log(`Fetching URL: ${url} with translation percentage: ${translationPercentage}%`);
 
-      // Add browser-like headers
+      // Add browser-like headers and fetch the webpage
       const response = await axios.get(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -157,17 +165,17 @@ export async function registerRoutes(app: Express) {
           'Accept-Language': 'en-US,en;q=0.5',
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
-          'Cookie': req.headers.cookie || '', // Forward any cookies from the client
-          'Referer': url, // Add referrer for better site compatibility
+          'Cookie': req.headers.cookie || '',
+          'Referer': url,
         },
-        timeout: 10000, // 10 second timeout
-        maxRedirects: 5, // Allow redirects for login pages
-        withCredentials: true, // Important for maintaining session
+        timeout: 10000,
+        maxRedirects: 5,
+        withCredentials: true,
       });
 
       const $ = cheerio.load(response.data);
 
-      // Add our custom styles for translated text
+      // Add our custom styles
       $('head').append(`
         <style>
           .swedish-text {
@@ -196,21 +204,62 @@ export async function registerRoutes(app: Express) {
             z-index: 1000;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
+
+          .vocabulary-list {
+            margin-top: 2rem;
+            padding: 2rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f8fafc;
+          }
+
+          .vocabulary-list h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1e293b;
+          }
+
+          .word-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+          }
+
+          .word-pair {
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          .word-pair span {
+            font-size: 0.875rem;
+          }
+
+          .word-pair .original {
+            color: #64748b;
+          }
+
+          .word-pair .translated {
+            color: #2563eb;
+            font-weight: 500;
+          }
         </style>
       `);
 
-      // Modify all links to work with our internal routing
+      // Handle links within the app
       $('a').each((_, element) => {
         const $link = $(element);
         const href = $link.attr('href');
         if (href) {
           try {
-            // Convert relative URLs to absolute
             const absoluteUrl = new URL(href, url).href;
             $link.attr('data-original-href', absoluteUrl);
             $link.addClass('translated-link');
           } catch (e) {
-            // If URL parsing fails, skip this link
             console.log('Skipping invalid URL:', href);
           }
         }
@@ -231,7 +280,7 @@ export async function registerRoutes(app: Express) {
         </script>
       `);
 
-      // Only select paragraph content for translation, excluding headlines and navigation
+      // Only select paragraph content for translation
       const textNodes = $("p, article p, .article-body p, .content p, .story-body p").contents().filter(function() {
         return this.type === 'text' && this.data.trim().length > 0;
       });
@@ -248,15 +297,17 @@ export async function registerRoutes(app: Express) {
         indices.add(Math.floor(Math.random() * textNodes.length));
       }
 
-      // Translate selected nodes
+      // Translate selected nodes and collect word pairs
       let translatedCount = 0;
+      const allWordPairs: Array<{ original: string; translated: string }> = [];
+
       for (let i = 0; i < textNodes.length; i++) {
         if (indices.has(i)) {
           const node = textNodes[i];
           const originalText = $(node).text().trim();
 
           if (originalText.length > 0) {
-            const translatedText = await translateText(originalText, language);
+            const { translatedText, wordPairs } = await translateText(originalText, language);
             await storage.saveTranslation({
               originalText,
               translatedText,
@@ -264,10 +315,31 @@ export async function registerRoutes(app: Express) {
             });
 
             $(node).replaceWith(translatedText);
+            allWordPairs.push(...wordPairs);
             translatedCount++;
           }
         }
       }
+
+      // Remove duplicates from word pairs
+      const uniqueWordPairs = Array.from(
+        new Map(allWordPairs.map(item => [item.original, item])).values()
+      );
+
+      // Add vocabulary list to the bottom of the page
+      $('body').append(`
+        <div class="vocabulary-list">
+          <h2>Words You've Learned</h2>
+          <div class="word-grid">
+            ${uniqueWordPairs.map(pair => `
+              <div class="word-pair">
+                <span class="original">${pair.original}</span>
+                <span class="translated">${pair.translated}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
 
       console.log(`Successfully translated ${translatedCount} text nodes`);
 
