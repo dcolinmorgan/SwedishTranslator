@@ -6,6 +6,22 @@ import * as cheerio from "cheerio";
 import axios from "axios";
 import { translate } from '@vitalets/google-translate-api';
 
+async function translateWithRetry(text: string, targetLang: string, retries = 3, delay = 1000): Promise<string> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const { text: translated } = await translate(text, { to: targetLang });
+      return translated;
+    } catch (error: any) {
+      if (error.message.includes('Too Many Requests') && i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Exponential backoff
+        continue;
+      }
+      throw error;
+    }
+  }
+  return text; // Fallback to original text if all retries fail
+}
+
 async function translateText(text: string, language: string): Promise<{ 
   translatedText: string;
   wordPairs: Array<{ original: string; translated: string }>;
@@ -22,16 +38,25 @@ async function translateText(text: string, language: string): Promise<{
   // Create a map of translations
   const translations = new Map<string, string>();
 
-  // Batch translate words
-  if (wordsToTranslate.length > 0) {
+  // Batch translate words in smaller groups to avoid rate limiting
+  const batchSize = 5;
+  for (let i = 0; i < wordsToTranslate.length; i += batchSize) {
+    const batch = wordsToTranslate.slice(i, i + batchSize);
     try {
-      const { text: translatedText } = await translate(wordsToTranslate.join(' '), { to: language });
+      const translatedText = await translateWithRetry(batch.join(' '), language);
       const translatedWords = translatedText.split(' ');
 
-      wordsToTranslate.forEach((word, index) => {
-        translations.set(word, translatedWords[index]);
-        wordPairs.push({ original: word, translated: translatedWords[index] });
+      batch.forEach((word, index) => {
+        if (translatedWords[index]) {
+          translations.set(word, translatedWords[index]);
+          wordPairs.push({ original: word, translated: translatedWords[index] });
+        }
       });
+
+      // Add a small delay between batches
+      if (i + batchSize < wordsToTranslate.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     } catch (error) {
       console.error('Translation error:', error);
     }
