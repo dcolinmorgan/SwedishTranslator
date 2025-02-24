@@ -4,129 +4,43 @@ import { storage } from "./storage";
 import { webpageSchema } from "@shared/schema";
 import * as cheerio from "cheerio";
 import axios from "axios";
-
-// Language-specific transformation patterns
-const languagePatterns: Record<string, { patterns: Array<{from: string, to: string}>, endings: string[] }> = {
-  swedish: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'ch', to: 'k' },
-      { from: 'sh', to: 'sj' },
-      { from: 'w', to: 'v' },
-      { from: 'oo', to: 'å' },
-      { from: 'ee', to: 'i' },
-      { from: 'ck', to: 'k' }
-    ],
-    endings: ['en', 'et', 'ar', 'or', 'er']
-  },
-  norwegian: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'ch', to: 'k' },
-      { from: 'sh', to: 'sj' },
-      { from: 'w', to: 'v' },
-      { from: 'oo', to: 'ø' },
-      { from: 'ee', to: 'i' }
-    ],
-    endings: ['en', 'et', 'ene', 'er', 'ene']
-  },
-  danish: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'ch', to: 'k' },
-      { from: 'sh', to: 'sj' },
-      { from: 'w', to: 'v' },
-      { from: 'oo', to: 'å' },
-      { from: 'ee', to: 'i' }
-    ],
-    endings: ['en', 'et', 'ene', 'er', 'erne']
-  },
-  german: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'sh', to: 'sch' },
-      { from: 'w', to: 'v' },
-      { from: 'oo', to: 'u' },
-      { from: 'ee', to: 'ie' }
-    ],
-    endings: ['en', 'er', 'es', 'e', 'ung']
-  },
-  dutch: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'sh', to: 'sch' },
-      { from: 'oo', to: 'oe' },
-      { from: 'ee', to: 'ie' }
-    ],
-    endings: ['en', 'je', 'tje', 'pje', 'heid']
-  },
-  french: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'oo', to: 'ou' },
-      { from: 'ee', to: 'é' },
-      { from: 'k', to: 'que' }
-    ],
-    endings: ['e', 'es', 'ent', 'ement', 'tion']
-  },
-  spanish: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'sh', to: 'ch' },
-      { from: 'oo', to: 'u' },
-      { from: 'ee', to: 'í' }
-    ],
-    endings: ['o', 'a', 'os', 'as', 'ción']
-  },
-  italian: {
-    patterns: [
-      { from: 'th', to: 't' },
-      { from: 'oo', to: 'u' },
-      { from: 'ee', to: 'i' },
-      { from: 'k', to: 'c' }
-    ],
-    endings: ['o', 'a', 'i', 'e', 'zione']
-  }
-};
+import translate from '@vitalets/google-translate-api';
 
 async function translateText(text: string, language: string): Promise<{ 
   translatedText: string;
   wordPairs: Array<{ original: string; translated: string }>;
 }> {
-  const langConfig = languagePatterns[language] || languagePatterns.swedish;
   const wordPairs: Array<{ original: string; translated: string }> = [];
 
-  function transform(word: string): string {
-    let transformed = word.toLowerCase();
+  // Split text into words while preserving punctuation
+  const words = text.match(/\b\w+\b/g) || [];
+  const uniqueWords = Array.from(new Set(words));
 
-    // Apply language-specific patterns
-    langConfig.patterns.forEach(({ from, to }) => {
-      transformed = transformed.replace(new RegExp(from, 'g'), to);
-    });
+  // Only translate a random selection of words (50% chance for each word)
+  const wordsToTranslate = uniqueWords.filter(() => Math.random() < 0.5);
 
-    // Add language-specific endings
-    if (Math.random() < 0.3) {
-      const ending = langConfig.endings[Math.floor(Math.random() * langConfig.endings.length)];
-      transformed += ending;
+  // Create a map of translations
+  const translations = new Map<string, string>();
+
+  // Batch translate words
+  if (wordsToTranslate.length > 0) {
+    try {
+      const { text: translatedText } = await translate(wordsToTranslate.join(' '), { to: language });
+      const translatedWords = translatedText.split(' ');
+
+      wordsToTranslate.forEach((word, index) => {
+        translations.set(word, translatedWords[index]);
+        wordPairs.push({ original: word, translated: translatedWords[index] });
+      });
+    } catch (error) {
+      console.error('Translation error:', error);
     }
-
-    // Preserve original capitalization
-    if (word[0] === word[0].toUpperCase()) {
-      transformed = transformed.charAt(0).toUpperCase() + transformed.slice(1);
-    }
-
-    return transformed;
   }
 
-  // Split the text into words while preserving punctuation and spaces
+  // Replace words in the original text
   const translatedText = text.replace(/\b\w+\b/g, (word) => {
-    // Randomly decide whether to translate this word (50% chance)
-    if (Math.random() < 0.5 && word.length > 2) {
-      const translatedWord = transform(word);
-      // Store the word pair for the vocabulary list
-      wordPairs.push({ original: word, translated: translatedWord });
-      // Wrap the translation in a span with the original word as a title
-      return `<span class="swedish-text" title="Original: ${word}">${translatedWord}</span>`;
+    if (translations.has(word)) {
+      return `<span class="swedish-text" title="Original: ${word}">${translations.get(word)}</span>`;
     }
     return word;
   });
