@@ -38,12 +38,13 @@ async function translateText(text: string, language: string): Promise<{
   }
 
   // Replace words in the original text
-  const translatedText = text.replace(/\b\w+\b/g, (word) => {
-    if (translations.has(word)) {
-      return `<span class="swedish-text" title="Original: ${word}">${translations.get(word)}</span>`;
-    }
-    return word;
-  });
+  let translatedText = text;
+  for (const [original, translated] of translations.entries()) {
+    const regex = new RegExp(`\\b${original}\\b`, 'g');
+    translatedText = translatedText.replace(regex, 
+      `<span class="swedish-text" title="Original: ${original}">${translated}</span>`
+    );
+  }
 
   return { translatedText, wordPairs };
 }
