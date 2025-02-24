@@ -5,10 +5,10 @@ import { webpageSchema } from "@shared/schema";
 import * as cheerio from "cheerio";
 import axios from "axios";
 
-async function translateText(text: string): Promise<string> {
-  // Basic Swedish patterns to transform English words
-  function swedify(word: string): string {
-    const patterns = [
+// Language-specific transformation patterns
+const languagePatterns: Record<string, { patterns: Array<{from: string, to: string}>, endings: string[] }> = {
+  swedish: {
+    patterns: [
       { from: 'th', to: 't' },
       { from: 'ch', to: 'k' },
       { from: 'sh', to: 'sj' },
@@ -16,33 +16,110 @@ async function translateText(text: string): Promise<string> {
       { from: 'oo', to: 'å' },
       { from: 'ee', to: 'i' },
       { from: 'ck', to: 'k' }
-    ];
+    ],
+    endings: ['en', 'et', 'ar', 'or', 'er']
+  },
+  norwegian: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'ch', to: 'k' },
+      { from: 'sh', to: 'sj' },
+      { from: 'w', to: 'v' },
+      { from: 'oo', to: 'ø' },
+      { from: 'ee', to: 'i' }
+    ],
+    endings: ['en', 'et', 'ene', 'er', 'ene']
+  },
+  danish: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'ch', to: 'k' },
+      { from: 'sh', to: 'sj' },
+      { from: 'w', to: 'v' },
+      { from: 'oo', to: 'å' },
+      { from: 'ee', to: 'i' }
+    ],
+    endings: ['en', 'et', 'ene', 'er', 'erne']
+  },
+  german: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'sh', to: 'sch' },
+      { from: 'w', to: 'v' },
+      { from: 'oo', to: 'u' },
+      { from: 'ee', to: 'ie' }
+    ],
+    endings: ['en', 'er', 'es', 'e', 'ung']
+  },
+  dutch: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'sh', to: 'sch' },
+      { from: 'oo', to: 'oe' },
+      { from: 'ee', to: 'ie' }
+    ],
+    endings: ['en', 'je', 'tje', 'pje', 'heid']
+  },
+  french: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'oo', to: 'ou' },
+      { from: 'ee', to: 'é' },
+      { from: 'k', to: 'que' }
+    ],
+    endings: ['e', 'es', 'ent', 'ement', 'tion']
+  },
+  spanish: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'sh', to: 'ch' },
+      { from: 'oo', to: 'u' },
+      { from: 'ee', to: 'í' }
+    ],
+    endings: ['o', 'a', 'os', 'as', 'ción']
+  },
+  italian: {
+    patterns: [
+      { from: 'th', to: 't' },
+      { from: 'oo', to: 'u' },
+      { from: 'ee', to: 'i' },
+      { from: 'k', to: 'c' }
+    ],
+    endings: ['o', 'a', 'i', 'e', 'zione']
+  }
+};
 
-    let swedishWord = word.toLowerCase();
-    patterns.forEach(({ from, to }) => {
-      swedishWord = swedishWord.replace(new RegExp(from, 'g'), to);
+async function translateText(text: string, language: string): Promise<string> {
+  const langConfig = languagePatterns[language] || languagePatterns.swedish;
+
+  function transform(word: string): string {
+    let transformed = word.toLowerCase();
+
+    // Apply language-specific patterns
+    langConfig.patterns.forEach(({ from, to }) => {
+      transformed = transformed.replace(new RegExp(from, 'g'), to);
     });
 
-    // Add common Swedish endings
+    // Add language-specific endings
     if (Math.random() < 0.3) {
-      const endings = ['en', 'et', 'ar', 'or', 'er'];
-      swedishWord += endings[Math.floor(Math.random() * endings.length)];
+      const ending = langConfig.endings[Math.floor(Math.random() * langConfig.endings.length)];
+      transformed += ending;
     }
 
     // Preserve original capitalization
     if (word[0] === word[0].toUpperCase()) {
-      swedishWord = swedishWord.charAt(0).toUpperCase() + swedishWord.slice(1);
+      transformed = transformed.charAt(0).toUpperCase() + transformed.slice(1);
     }
 
-    return swedishWord;
+    return transformed;
   }
 
   // Split the text into words while preserving punctuation and spaces
   return text.replace(/\b\w+\b/g, (word) => {
     // Randomly decide whether to translate this word (50% chance)
     if (Math.random() < 0.5 && word.length > 2) {
-      const translatedWord = swedify(word);
-      // Wrap the Swedish translation in a span with the original word as a title
+      const translatedWord = transform(word);
+      // Wrap the translation in a span with the original word as a title
       return `<span class="swedish-text" title="Original: ${word}">${translatedWord}</span>`;
     }
     return word;
@@ -69,7 +146,7 @@ export async function registerRoutes(app: Express) {
     }
 
     try {
-      const { url, translationPercentage } = result.data;
+      const { url, translationPercentage, language } = result.data;
       console.log(`Fetching URL: ${url} with translation percentage: ${translationPercentage}%`);
 
       // Add browser-like headers
@@ -90,7 +167,7 @@ export async function registerRoutes(app: Express) {
 
       const $ = cheerio.load(response.data);
 
-      // Add our custom styles for Swedish text
+      // Add our custom styles for translated text
       $('head').append(`
         <style>
           .swedish-text {
@@ -179,7 +256,7 @@ export async function registerRoutes(app: Express) {
           const originalText = $(node).text().trim();
 
           if (originalText.length > 0) {
-            const translatedText = await translateText(originalText);
+            const translatedText = await translateText(originalText, language);
             await storage.saveTranslation({
               originalText,
               translatedText,

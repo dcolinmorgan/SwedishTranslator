@@ -3,6 +3,13 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Globe, Loader2, Github } from "lucide-react";
@@ -16,9 +23,21 @@ const TEST_URLS = [
   { url: "https://www.bloomberg.com", description: "Bloomberg - Business & Markets" }
 ];
 
+const LANGUAGES = [
+  { value: "swedish", label: "Swedish" },
+  { value: "norwegian", label: "Norwegian" },
+  { value: "danish", label: "Danish" },
+  { value: "german", label: "German" },
+  { value: "dutch", label: "Dutch" },
+  { value: "french", label: "French" },
+  { value: "spanish", label: "Spanish" },
+  { value: "italian", label: "Italian" }
+];
+
 export default function Home() {
   const [url, setUrl] = useState(DEFAULT_URL);
   const [translationPercent, setTranslationPercent] = useState([30]);
+  const [language, setLanguage] = useState("swedish");
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { toast } = useToast();
@@ -58,7 +77,8 @@ export default function Home() {
 
       const res = await apiRequest("POST", "/api/translate", {
         url,
-        translationPercentage: translationPercent[0]
+        translationPercentage: translationPercent[0],
+        language
       });
       return res.json();
     },
@@ -79,35 +99,11 @@ export default function Home() {
       }
     },
     onError: (error: any) => {
-      if (error.response?.data?.testUrls) {
-        toast({
-          title: "Access Denied",
-          description: (
-            <div className="space-y-2">
-              <p>{error.response.data.details}</p>
-              <ul className="list-disc pl-4">
-                {error.response.data.testUrls.map((url: string) => (
-                  <li key={url}>
-                    <button
-                      className="text-blue-500 hover:underline"
-                      onClick={() => setUrl(url)}
-                    >
-                      {url}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ),
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to translate webpage",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to translate webpage",
+        variant: "destructive"
+      });
     }
   });
 
@@ -121,12 +117,12 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <Globe className="w-8 h-8 text-blue-500" />
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-yellow-600 bg-clip-text text-transparent">
-                  Learn Swedish by Reading
+                  Learn Languages by Reading
                 </h1>
               </div>
               <p className="text-muted-foreground mt-4 text-lg">
-                Enhance your Swedish language skills by reading real-world content. 
-                This tool intelligently translates portions of any webpage into Swedish, 
+                Enhance your language skills by reading real-world content. 
+                This tool intelligently translates portions of any webpage into your chosen language, 
                 helping you learn through immersion while maintaining context.
               </p>
               <div className="mt-2 text-sm text-muted-foreground">
@@ -137,6 +133,25 @@ export default function Home() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Target Language</label>
+                <Select
+                  value={language}
+                  onValueChange={setLanguage}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Webpage URL</label>
                 <Input
@@ -223,7 +238,7 @@ export default function Home() {
       <footer className="w-full border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 max-w-screen-2xl items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Built with 💙 for learning Swedish
+            Built with 💙 for learning languages
           </p>
           <div className="flex items-center space-x-4">
             <a
