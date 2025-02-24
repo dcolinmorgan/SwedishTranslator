@@ -95,12 +95,29 @@ export async function registerRoutes(app: Express) {
         <style>
           .swedish-text {
             color: #2563eb;
+            position: relative;
             background-color: rgba(37, 99, 235, 0.1);
             padding: 0 2px;
             border-radius: 2px;
             cursor: help;
             text-decoration: underline dotted #2563eb;
             text-underline-offset: 2px;
+          }
+
+          .swedish-text:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2563eb;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
         </style>
       `);
