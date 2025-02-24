@@ -105,9 +105,16 @@ export async function registerRoutes(app: Express) {
       $('a').each((_, element) => {
         const $link = $(element);
         const href = $link.attr('href');
-        if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-          $link.attr('data-original-href', href);
-          $link.addClass('translated-link');
+        if (href) {
+          try {
+            // Convert relative URLs to absolute
+            const absoluteUrl = new URL(href, url).href;
+            $link.attr('data-original-href', absoluteUrl);
+            $link.addClass('translated-link');
+          } catch (e) {
+            // If URL parsing fails, skip this link
+            console.log('Skipping invalid URL:', href);
+          }
         }
       });
 
