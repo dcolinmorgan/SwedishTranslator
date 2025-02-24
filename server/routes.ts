@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { webpageSchema } from "@shared/schema";
 import * as cheerio from "cheerio";
 import axios from "axios";
-import translate from '@vitalets/google-translate-api';
+import { translate } from '@vitalets/google-translate-api';
 
 async function translateText(text: string, language: string): Promise<{ 
   translatedText: string;
