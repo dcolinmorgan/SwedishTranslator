@@ -178,7 +178,7 @@ export async function registerRoutes(app: Express) {
 
       // Handle specific error cases
       if (error.response?.status === 403) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Access Denied",
           details: "This website doesn't allow automated access. Try one of these test URLs instead:",
           testUrls: [
@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express) {
         });
       }
 
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to translate webpage",
         details: error.message || 'Unknown error'
       });
