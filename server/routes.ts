@@ -80,8 +80,12 @@ export async function registerRoutes(app: Express) {
           'Accept-Language': 'en-US,en;q=0.5',
           'Connection': 'keep-alive',
           'Upgrade-Insecure-Requests': '1',
+          'Cookie': req.headers.cookie || '', // Forward any cookies from the client
+          'Referer': url, // Add referrer for better site compatibility
         },
         timeout: 10000, // 10 second timeout
+        maxRedirects: 5, // Allow redirects for login pages
+        withCredentials: true, // Important for maintaining session
       });
 
       const $ = cheerio.load(response.data);
@@ -172,6 +176,12 @@ export async function registerRoutes(app: Express) {
       }
 
       console.log(`Successfully translated ${translatedCount} text nodes`);
+
+      // Forward cookies from the response back to the client
+      if (response.headers['set-cookie']) {
+        res.set('Set-Cookie', response.headers['set-cookie']);
+      }
+
       res.json({ html: $.html() });
     } catch (error: any) {
       console.error('Translation error:', error);
