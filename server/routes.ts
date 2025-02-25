@@ -6,8 +6,9 @@ import * as cheerio from "cheerio";
 import axios from "axios";
 import { translate } from '@vitalets/google-translate-api';
 
+import { promises as fs } from 'fs';
+
 async function loadDictionary(): Promise<Map<string, string>> {
-  import { promises as fs } from 'fs';
   const dictionary = new Map<string, string>();
   
   try {
