@@ -7,7 +7,7 @@ import axios from "axios";
 import { translate } from '@vitalets/google-translate-api';
 
 async function loadDictionary(): Promise<Map<string, string>> {
-  const fs = require('fs').promises;
+  import { promises as fs } from 'fs';
   const dictionary = new Map<string, string>();
   
   try {
