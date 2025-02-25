@@ -6,59 +6,54 @@ import * as cheerio from "cheerio";
 import axios from "axios";
 import { translate } from '@vitalets/google-translate-api';
 
-async function translateWithRetry(text: string, targetLang: string, retries = 3, delay = 1000): Promise<string> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const { text: translated } = await translate(text, { to: targetLang });
-      return translated;
-    } catch (error: any) {
-      if (error.message.includes('Too Many Requests') && i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Exponential backoff
-        continue;
+async function loadDictionary(): Promise<Map<string, string>> {
+  const fs = require('fs').promises;
+  const dictionary = new Map<string, string>();
+  
+  try {
+    const content = await fs.readFile('sv_en.txt', 'utf-8');
+    const lines = content.split('\n');
+    
+    for (const line of lines) {
+      const [english, swedish] = line.split(';').map(s => s.trim());
+      if (english && swedish) {
+        dictionary.set(english.toLowerCase(), swedish);
       }
-      throw error;
     }
+  } catch (error) {
+    console.error('Error loading dictionary:', error);
   }
-  return text; // Fallback to original text if all retries fail
+  
+  return dictionary;
 }
+
+const dictionaryPromise = loadDictionary();
 
 async function translateText(text: string, language: string): Promise<{ 
   translatedText: string;
   wordPairs: Array<{ original: string; translated: string }>;
 }> {
   const wordPairs: Array<{ original: string; translated: string }> = [];
+  const dictionary = await dictionaryPromise;
 
   // Split text into words while preserving punctuation
   const words = text.match(/\b\w+\b/g) || [];
   const uniqueWords = Array.from(new Set(words));
 
-  // Only translate a random selection of words (50% chance for each word)
-  const wordsToTranslate = uniqueWords.filter(() => Math.random() < 0.5);
+  // Only translate words that exist in our dictionary (50% chance for each word)
+  const wordsToTranslate = uniqueWords.filter(word => 
+    dictionary.has(word.toLowerCase()) && Math.random() < 0.5
+  );
 
   // Create a map of translations
   const translations = new Map<string, string>();
 
-  // Batch translate words in smaller groups to avoid rate limiting
-  const batchSize = 5;
-  for (let i = 0; i < wordsToTranslate.length; i += batchSize) {
-    const batch = wordsToTranslate.slice(i, i + batchSize);
-    try {
-      const translatedText = await translateWithRetry(batch.join(' '), language);
-      const translatedWords = translatedText.split(' ');
-
-      batch.forEach((word, index) => {
-        if (translatedWords[index]) {
-          translations.set(word, translatedWords[index]);
-          wordPairs.push({ original: word, translated: translatedWords[index] });
-        }
-      });
-
-      // Add a small delay between batches
-      if (i + batchSize < wordsToTranslate.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } catch (error) {
-      console.error('Translation error:', error);
+  // Translate words using our dictionary
+  for (const word of wordsToTranslate) {
+    const translation = dictionary.get(word.toLowerCase());
+    if (translation) {
+      translations.set(word, translation);
+      wordPairs.push({ original: word, translated: translation });
     }
   }
 
